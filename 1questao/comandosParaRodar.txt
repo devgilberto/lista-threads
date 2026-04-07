@@ -1,2 +1,0 @@
-﻿gcc primeira.c -o primeiraQuestaoBinario -pthread
-./primeiraQuestaoBinario imagem.ppm imagem_cinza.ppm
