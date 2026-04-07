@@ -1,0 +1,206 @@
+#include <pthread.h>
+
+→ Biblioteca para trabalhar com threads
+#include <stdio.h>
+
+→ Permite usar funções de entrada e saída (tipo printf)
+#include <stdlib.h>
+
+→ Permite usar funções como malloc e free (memória dinâmica)
+
+🔹 Struct sort_args
+typedef struct {
+    int* arr;
+    int i;
+    int f;
+} sort_args;
+
+→ Cria um tipo chamado sort_args com:
+arr = ponteiro para o vetor de inteiros
+i = índice inicial (left)
+f = índice final (right)
+
+🔹 Função merge
+void merge(int* arr, int l, int m, int r)
+
+→ Função que intercala duas metades ordenadas do vetor
+→ Recebe: vetor, índice esquerdo, meio, índice direito
+
+int n1 = m - l + 1;
+int n2 = r - m;
+
+→ Calcula o tamanho da metade esquerda e direita
+
+int *esq = malloc(sizeof(int)*n1);
+int *dir = malloc(sizeof(int)*n2);
+
+→ Aloca vetores temporários para as duas metades
+
+for(i=0; i<n1; i++) {
+    esq[i] = arr[l+i];
+}
+for(j=0; j<n2; j++) {
+    dir[j] = arr[m+1+j];
+}
+
+→ Copia os elementos para os vetores temporários
+
+i = 0; j = 0; k = l;
+
+→ Inicializa os índices:
+i = índice do vetor esquerdo
+j = índice do vetor direito
+k = índice do vetor original
+
+while (i < n1 && j < n2) {
+    if (esq[i] <= dir[j]) {
+        arr[k] = esq[i];
+        i++;
+    } else {
+        arr[k] = dir[j];
+        j++;
+    }
+    k++;
+}
+
+→ Compara os elementos das duas metades
+→ Coloca o menor de volta no vetor original
+
+while (i < n1) {
+    arr[k] = esq[i];
+    i++;
+    k++;
+}
+
+→ Copia os elementos restantes da metade esquerda
+
+while (j < n2) {
+    arr[k] = dir[j];
+    j++;
+    k++;
+}
+
+→ Copia os elementos restantes da metade direita
+
+free(esq);
+free(dir);
+
+→ Libera a memória alocada para os vetores temporários
+
+🔹 Função parallel_mergesort
+void* parallel_mergesort(void* arg)
+
+→ Função que cada thread vai executar
+→ Recebe um argumento genérico (void*)
+
+sort_args* args = (sort_args*)arg;
+int* arr = args->arr;
+int i = args->i;
+int f = args->f;
+
+→ Converte o argumento para sort_args*
+→ Extrai o vetor, início e fim
+
+if (i < f)
+
+→ Só ordena se o intervalo tiver mais de um elemento
+
+int m = i + (f - i) / 2;
+
+→ Calcula o meio do intervalo
+→ Evita overflow (diferente de (i+f)/2)
+
+sort_args esq_args = {arr, i, m};
+sort_args dir_args = {arr, m+1, f};
+
+→ Cria as estruturas para as duas metades
+
+pthread_t tid;
+
+→ Declara um identificador de thread
+
+printf("Criando thread para o intervalo [%d:%d]\n", i, m);
+
+→ Mensagem informando que vai criar uma thread
+
+pthread_create(&tid, NULL, parallel_mergesort, &esq_args);
+
+→ Cria uma nova thread para ordenar a metade esquerda
+
+parallel_mergesort(&dir_args);
+
+→ A thread atual ordena a metade direita (sequencial)
+
+printf("Aguardando conclusão da thread\n");
+pthread_join(tid, NULL);
+
+→ Espera a thread da metade esquerda terminar
+
+merge(arr, i, m, f);
+
+→ Intercala as duas metades já ordenadas
+
+return NULL;
+
+→ Finaliza a thread
+
+🔹 Função mostrarVetorOriginal
+void mostrarVetorOriginal(int* v, int tamanho)
+
+→ Exibe o vetor antes da ordenação
+
+printf("Este é o vetor original:\n");
+for(int i=0; i<tamanho; i++) {
+    printf("%d ", v[i]);
+}
+printf("\n");
+
+→ Percorre e imprime cada elemento
+
+🔹 Função mostrarVetorOrdenado
+void mostrarVetorOrdenado(int* v, int tamanho)
+
+→ Exibe o vetor após a ordenação
+
+printf("O vetor foi ordenado com sucesso!\n");
+for(int i=0; i<tamanho; i++) {
+    printf("%d ", v[i]);
+}
+printf("\n");
+
+→ Percorre e imprime cada elemento
+
+🔹 MAIN
+int main()
+
+→ Função principal
+
+int v[] = {7, -2, 3, 9, 1, 0, 8};
+
+→ Vetor de exemplo para ordenar
+
+int tamanho = sizeof(v) / sizeof(v[0]);
+
+→ Calcula o tamanho do vetor
+→ sizeof(v) = bytes totais (7 * 4 = 28)
+→ sizeof(v[0]) = bytes de um elemento (4)
+→ 28 / 4 = 7 elementos
+
+sort_args args = {v, 0, tamanho - 1};
+
+→ Cria a estrutura com:
+vetor = v
+início = 0
+fim = 6 (último índice)
+
+mostrarVetorOriginal(v, tamanho);
+
+→ Mostra o vetor antes da ordenação
+
+parallel_mergesort(&args);
+
+→ Chama o merge sort paralelo
+
+mostrarVetorOrdenado(v, tamanho);
+
+→ Mostra o vetor depois da ordenação

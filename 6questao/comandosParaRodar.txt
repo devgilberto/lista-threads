@@ -1,0 +1,3 @@
+gcc Q6_threads.c -o mergeSort -pthread
+
+./mergeSort
