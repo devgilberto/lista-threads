@@ -1,0 +1,3 @@
+gcc Q3_threads.c -o hashMap -pthread
+
+./hashMap

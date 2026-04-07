@@ -1,0 +1,191 @@
+EXPLICAÇÃO DO CÓDIGO – HASH MAP CONCORRENTE COM PTHREADS
+
+Bom, nesse código eu implementei um Hash Map que permite várias threads acessarem ao mesmo tempo, mas sem dar problema de concorrência. Pra isso, usei mutex em cada bucket.
+
+---
+
+INCLUDES E DEFINES
+
+* stdio.h → pra usar printf
+* stdlib.h → pra malloc, free e abs
+* pthread.h → pra trabalhar com threads
+
+Depois defini duas constantes:
+
+* TAM = 16 → quantidade de buckets do hashmap
+* NTHREADS = 4 → número de threads que vou usar no teste
+
+---
+
+ESTRUTURA DO NÓ
+
+Criei uma struct chamada "No", que representa cada elemento dentro do hashmap.
+
+Ela tem:
+
+* chave (int)
+* valor (int)
+* ponteiro "prox" (pra fazer lista encadeada)
+
+Isso é necessário porque cada bucket pode ter várias chaves (colisão).
+
+---
+
+ESTRUTURA DO BUCKET
+
+Cada bucket tem:
+
+* um ponteiro pro início da lista (inicio)
+* um mutex próprio (lock)
+
+Esse mutex é o mais importante aqui, porque é ele que permite o "fine-grained locking", ou seja, cada bucket é travado separadamente.
+
+---
+
+ESTRUTURA DO HASHMAP
+
+O hashmap em si tem:
+
+* um array de buckets
+* o tamanho (quantos buckets existem)
+
+---
+
+FUNÇÃO HASH
+
+A função hash pega a chave e faz:
+
+abs(chave) % tamanho
+
+Isso serve pra espalhar as chaves entre os buckets.
+
+---
+
+FUNÇÃO CRIAR
+
+Aqui eu aloco memória pro hashmap e pros buckets.
+
+Depois faço um for pra:
+
+* inicializar cada bucket com NULL
+* inicializar o mutex de cada bucket
+
+---
+
+FUNÇÃO INSERIR
+
+Essa função:
+
+1. Calcula em qual bucket a chave vai cair (usando hash)
+2. Trava o mutex daquele bucket
+3. Percorre a lista pra ver se a chave já existe
+
+Se existir:
+
+* atualiza o valor
+
+Se não existir:
+
+* cria um novo nó
+* coloca no início da lista
+
+Depois libera o mutex.
+
+---
+
+FUNÇÃO BUSCAR
+
+Aqui:
+
+1. Descobre o bucket
+2. Trava o mutex
+3. Percorre a lista
+
+Se encontrar:
+
+* retorna o valor
+
+Se não encontrar:
+
+* retorna -1
+
+Depois sempre libera o mutex.
+
+---
+
+FUNÇÃO REMOVER
+
+Essa parte é um pouco mais chatinha:
+
+1. Acha o bucket
+2. Trava o mutex
+3. Percorre a lista guardando o anterior
+
+Se encontrar a chave:
+
+* ajusta os ponteiros pra remover o nó
+* libera a memória
+
+Depois libera o mutex.
+
+---
+
+FUNÇÃO DESTRUIR
+
+Aqui eu libero toda a memória:
+
+* percorro cada bucket
+* libero todos os nós da lista
+* destruo o mutex
+
+Depois libero o array de buckets e o próprio hashmap.
+
+---
+
+PARTE DAS THREADS
+
+Criei uma struct "Args" só pra passar:
+
+* o hashmap
+* o id da thread
+
+---
+
+FUNÇÃO TAREFA (THREAD)
+
+Cada thread faz:
+
+* 3 inserções
+* 3 buscas
+* 1 remoção (quando i == 1)
+
+Usei printf pra mostrar o que cada thread está fazendo.
+
+Isso ajuda a ver a concorrência acontecendo.
+
+---
+
+MAIN
+
+No main:
+
+1. Crio o hashmap
+
+2. Faço um teste simples (sem threads):
+
+   * inserir
+   * buscar
+   * remover
+
+3. Depois faço o teste com threads:
+
+   * crio 4 threads
+   * cada uma executa a função tarefa
+   * uso pthread_join pra esperar todas terminarem
+
+4. No final:
+
+   * libero memória
+   * printo "Fim"
+
+
