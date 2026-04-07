@@ -1,0 +1,235 @@
+🔹 Bibliotecas
+#include <stdio.h>
+
+→ Permite usar funções de entrada e saída (tipo printf, scanf, fopen)
+#include <stdlib.h>
+
+→ Permite usar funções como malloc e free (memória dinâmica)
+#include <pthread.h>
+
+→ Biblioteca para trabalhar com threads
+
+🔹 Definições de constantes
+#define N 3
+
+→ Define o tamanho da matriz quadrada (N x N)
+#define NUM_THREADS 3
+
+→ Define quantas threads serão usadas na verificação
+
+🔹 Variáveis globais
+int matriz[N][N];
+
+→ Matriz que armazena os valores digitados pelo usuário
+int soma_magica = 0;
+
+→ Armazena o valor da soma mágica (calculado pela primeira linha)
+int eh_magico = 1;
+
+→ Flag que indica se é quadrado mágico (1 = sim, 0 = não)
+pthread_mutex_t mutex;
+
+→ Mutex para proteger acesso à variável eh_magico
+
+🔹 Struct ThreadData
+typedef struct {
+    int id;
+    int inicio;
+    int fim;
+} ThreadData;
+
+→ Cria um tipo chamado ThreadData com:
+id = identificador da thread (0, 1, 2...)
+inicio = primeira linha que essa thread vai verificar
+fim = última linha + 1 que essa thread vai verificar
+
+🔹 Função da thread
+void *verifica_parte(void *arg)
+
+→ Função que cada thread vai executar
+→ Recebe um argumento genérico (void*)
+
+ThreadData *dados = (ThreadData *)arg;
+
+→ Converte o argumento para o tipo ThreadData*
+
+🔹 Verificação das linhas
+for (int i = dados->inicio; i < dados->fim; i++)
+
+→ Loop pelas linhas que essa thread é responsável
+
+int somaLinha = 0;
+for (int j = 0; j < N; j++) {
+    somaLinha += matriz[i][j];
+}
+
+→ Soma todos os elementos da linha i
+
+if (somaLinha != soma_magica)
+
+→ Se a soma for diferente da soma mágica
+
+pthread_mutex_lock(&mutex);
+eh_magico = 0;
+pthread_mutex_unlock(&mutex);
+
+→ Trava o mutex, muda a flag para falso (não é mágico), destrava
+→ Isso evita condição de corrida entre threads
+
+pthread_exit(NULL);
+
+→ Thread termina imediatamente (não precisa continuar)
+
+🔹 Verificação das colunas (apenas thread 0)
+if (dados->id == 0)
+
+→ Somente a thread 0 executa essa parte (evita retrabalho)
+
+for (int j = 0; j < N; j++)
+
+→ Loop por todas as colunas
+
+int somaColuna = 0;
+for (int i = 0; i < N; i++) {
+    somaColuna += matriz[i][j];
+}
+
+→ Soma todos os elementos da coluna j
+
+if (somaColuna != soma_magica)
+
+→ Se a soma for diferente da soma mágica
+
+pthread_mutex_lock(&mutex);
+eh_magico = 0;
+pthread_mutex_unlock(&mutex);
+pthread_exit(NULL);
+
+→ Marca como não mágico e termina a thread
+
+🔹 Verificação das diagonais (apenas thread 0)
+int somaDiag1 = 0, somaDiag2 = 0;
+
+→ Inicializa as somas das duas diagonais
+
+for (int i = 0; i < N; i++) {
+    somaDiag1 += matriz[i][i];
+    somaDiag2 += matriz[i][N - i - 1];
+}
+
+→ somaDiag1: diagonal principal (linha = coluna)
+→ somaDiag2: diagonal secundária (linha + coluna = N-1)
+
+if (somaDiag1 != soma_magica || somaDiag2 != soma_magica)
+
+→ Se alguma diagonal for diferente da soma mágica
+
+pthread_mutex_lock(&mutex);
+eh_magico = 0;
+pthread_mutex_unlock(&mutex);
+pthread_exit(NULL);
+
+→ Marca como não mágico e termina
+
+return NULL;
+
+→ Finaliza a thread (caso chegue até aqui)
+
+🔹 MAIN
+int main()
+
+→ Função principal
+
+🔹 Inicialização do mutex
+pthread_mutex_init(&mutex, NULL);
+
+→ Cria/inicializa o mutex antes de usar
+
+🔹 Leitura da matriz
+printf("Digite os valores da matriz %dx%d:\n", N, N);
+
+→ Mensagem para o usuário
+
+for (int i = 0; i < N; i++) {
+    for (int j = 0; j < N; j++) {
+        scanf("%d", &matriz[i][j]);
+    }
+}
+
+→ Lê os N x N valores digitados pelo usuário
+
+🔹 Cálculo da soma mágica
+for (int j = 0; j < N; j++) {
+    soma_magica += matriz[0][j];
+}
+
+→ Soma os elementos da primeira linha
+→ Esse é o valor que todas as linhas, colunas e diagonais devem ter
+
+🔹 Preparação para criar threads
+pthread_t threads[NUM_THREADS];
+
+→ Vetor que armazena as threads
+ThreadData dados[NUM_THREADS];
+
+→ Vetor que armazena os dados de cada thread
+
+🔹 Divisão das linhas entre as threads
+int linhas_por_thread = N / NUM_THREADS;
+
+→ Quantidade base de linhas por thread
+int resto = N % NUM_THREADS;
+
+→ Resto da divisão (linhas extras para distribuir)
+int linha_atual = 0;
+
+→ Controla onde começa a próxima thread
+
+for (int i = 0; i < NUM_THREADS; i++)
+
+→ Loop para configurar cada thread
+
+dados[i].id = i;
+dados[i].inicio = linha_atual;
+
+→ Define o ID e a linha inicial
+
+int linhas_para_essa_thread = linhas_por_thread;
+if (resto > 0) {
+    linhas_para_essa_thread++;
+    resto--;
+}
+
+→ Distribui as linhas extras (ex: 5 linhas para 2 threads → 3 e 2)
+
+dados[i].fim = linha_atual + linhas_para_essa_thread;
+linha_atual = dados[i].fim;
+
+→ Define a linha final e atualiza o ponteiro
+
+🔹 Criação das threads
+pthread_create(&threads[i], NULL, verifica_parte, &dados[i]);
+
+→ Cria a thread e manda executar a função verifica_parte
+→ Passa o endereço dos dados da thread como argumento
+
+🔹 Aguardar threads terminarem
+for (int i = 0; i < NUM_THREADS; i++) {
+    pthread_join(threads[i], NULL);
+}
+
+→ Espera cada thread terminar sua execução
+
+🔹 Destruir mutex
+pthread_mutex_destroy(&mutex);
+
+→ Libera os recursos do mutex
+
+🔹 Resultado final
+if (eh_magico) {
+    printf("A matriz eh um quadrado magico!\n");
+} else {
+    printf("A matriz NAO eh um quadrado magico!\n");
+}
+
+→ Exibe se a matriz é ou não um quadrado mágico

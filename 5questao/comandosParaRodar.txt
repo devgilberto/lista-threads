@@ -1,0 +1,23 @@
+gcc Q5_threads.c -o quadradoMagico -pthread
+
+./quadradoMagico
+
+=================================== 
+
+# Digitar os valores da matriz 3x3 (pressione ENTER após cada número):
+8 1 6
+3 5 7
+4 9 2
+
+# Resultado:
+A matriz eh um quadrado magico!
+
+====================================
+
+# Digitar os valores da matriz 3x3 (pressione ENTER após cada número):
+1 2 3
+4 5 6
+7 8 9
+
+# Resultado :
+A matriz NAO eh um quadrado magico!
