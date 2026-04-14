@@ -1,0 +1,169 @@
+🔹 Bibliotecas que usei
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <string.h>
+
+usei stdio pra ler e escrever, stdlib pra alocar memoria se precisar,
+pthread pras threads, unistd pro sleep, e string pra manipular strings.
+
+🔹 Constantes que defini
+#define L 7
+#define N_ARQS 5
+#define T 3
+
+L sao as 7 linhas da tela, N_ARQS eh a quantidade de arquivos que vao ser lidos,
+T eh o numero de threads que o programa vai usar (tem que ser entre 1 e N_ARQS).
+
+🔹 Mutexes que criei
+pthread_mutex_t mutex_fila;
+pthread_mutex_t mutex_tela[L];
+
+um mutex pra controlar a fila de arquivos (quem pega qual arquivo),
+e um array de 7 mutexes, um pra cada linha da tela. assim enquanto uma thread
+muda a linha 3, outra pode mudar a linha 5 ao mesmo tempo. isso eh o tal do
+fine-grained locking que o professor pediu.
+
+🔹 Variavel global
+int proximo_arquivo = 1;
+
+essa variavel guarda qual eh o proximo arquivo a ser lido. comeco do 1 ate o 5.
+as threads vao pegando os arquivos na ordem.
+
+🔹 Cores ANSI
+char* cores[] = {"\033[1;31m", "\033[1;33m", "\033[1;34m", "\033[1;35m", 
+                 "\033[1;32m", "\033[1;37m", "\033[1;36m"};
+
+vermelho, amarelo, azul, roxo, verde, branco, ciano. cada linha vai ter uma cor
+diferente pra ficar bonitinho na tela.
+
+🔹 Funcao da thread (thread_operaria)
+void* thread_operaria(void* arg) {
+
+essa eh a funcao que cada thread vai executar. todas as 3 threads rodam isso.
+
+🔹 Loop infinito
+while (1) {
+
+cada thread fica nesse loop ate acabar os arquivos.
+
+🔹 Pegar o proximo arquivo (secao critica)
+pthread_mutex_lock(&mutex_fila);
+if (proximo_arquivo > N_ARQS) {
+    pthread_mutex_unlock(&mutex_fila);
+    break;
+}
+arq_id = proximo_arquivo;
+proximo_arquivo++;
+pthread_mutex_unlock(&mutex_fila);
+
+aqui eu travo o mutex da fila pra so uma thread por vez pegar um arquivo.
+se ja acabaram os arquivos, a thread sai do loop (break).
+senao, pega o id do arquivo e incrementa o contador.
+
+🔹 Montar nome do arquivo
+char nome_arquivo[20];
+sprintf(nome_arquivo, "trem%d.txt", arq_id);
+
+cria o nome tipo "trem1.txt", "trem2.txt", etc.
+
+🔹 Abrir e ler o arquivo
+FILE *f = fopen(nome_arquivo, "r");
+if (f == NULL) {
+    continue;
+}
+
+tenta abrir o arquivo. se nao existir, vai pro proximo.
+
+🔹 Ler o conteudo formatado
+int linha;
+char id[15], destino[30], horario[10];
+
+if (fscanf(f, "%d %s %s %s", &linha, id, destino, horario) == 4) {
+
+leio 4 coisas: o numero da linha, o id do trem, o destino, e o horario.
+o fscanf retorna 4 se leu tudo certo.
+
+🔹 Ajustar indice
+int idx = linha - 1;
+
+as linhas vao de 1 a 7, mas o array vai de 0 a 6. entao subtraio 1.
+
+🔹 Travar o mutex da linha (fine-grained!)
+pthread_mutex_lock(&mutex_tela[idx]);
+
+aqui eh a parte mais importante. eu travo APENAS o mutex da linha que vou mudar.
+as outras linhas continuam livres pra outras threads mexerem.
+
+🔹 Imprimir com ANSI
+printf("\033[%d;1H\033[K%s%s\t%-15s\t%s\033[0m", 
+       linha, cores[idx], id, destino, horario);
+
+\033[%d;1H vai para a linha certa na tela
+\033[K limpa a linha antes de escrever
+%s eh a cor (ex: vermelho)
+%s id do trem
+%-15s destino (alinhado a esquerda)
+%s horario
+\033[0m reseta a cor
+
+🔹 Esperar 2 segundos
+sleep(2);
+
+o professor pediu que cada linha aguarde 2 segundos antes de ser modificada de novo.
+
+🔹 Destravar o mutex da linha
+pthread_mutex_unlock(&mutex_tela[idx]);
+
+libero a linha pra outras threads.
+
+🔹 Fechar arquivo
+fclose(f);
+
+nao esquecer de fechar o arquivo.
+
+🔹 MAIN
+int main() {
+
+funcao principal.
+
+🔹 Limpar a tela
+printf("\033[2J");
+
+codigo ANSI pra limpar a tela toda.
+
+🔹 Inicializar mutexes
+pthread_mutex_init(&mutex_fila, NULL);
+for (int i = 0; i < L; i++) {
+    pthread_mutex_init(&mutex_tela[i], NULL);
+}
+
+inicializo o mutex da fila e os 7 mutexes das linhas.
+
+🔹 Criar as threads
+for (int i = 0; i < T; i++) {
+    pthread_create(&threads[i], NULL, thread_operaria, NULL);
+}
+
+crio T threads (no meu caso 3) executando a funcao thread_operaria.
+
+🔹 Esperar as threads terminarem
+for (int i = 0; i < T; i++) {
+    pthread_join(threads[i], NULL);
+}
+
+aguardo todas as threads acabarem.
+
+🔹 Mover cursor pro final
+printf("\033[%d;1H\nProcessamento concluído.\n", L + 1);
+
+vai pra linha 8 (7+1) e escreve que acabou.
+
+🔹 Destruir mutexes
+pthread_mutex_destroy(&mutex_fila);
+for (int i = 0; i < L; i++) pthread_mutex_destroy(&mutex_tela[i]);
+
+libero a memoria dos mutexes.
+
+FIM
