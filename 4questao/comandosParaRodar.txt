@@ -1,0 +1,3 @@
+gcc Q2_threads.c -o pedagio -pthread
+
+./pedagio

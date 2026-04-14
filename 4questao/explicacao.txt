@@ -1,0 +1,152 @@
+🔹 Bibliotecas que usei
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
+
+stdio pra printf, stdlib pra alocar se precisar, pthread pras threads e mutex,
+unistd pro sleep e usleep.
+
+🔹 Constantes
+#define C 3
+#define T 10
+
+C eh o numero de cabines de pedagio (recursos limitados)
+T eh o numero de carros (threads) que vao chegar
+
+🔹 Variaveis globais
+int cabines[C];
+
+um vetor onde cada posicao representa uma cabine:
+0 = cabine livre
+1 = cabine ocupada
+
+pthread_mutex_t mutex;
+
+mutex pra proteger o vetor de cabines. como varias threads vao acessar
+e modificar esse vetor, preciso de mutex pra nao dar confusao.
+
+pthread_cond_t cond;
+
+variavel de condicao. serve pra suspender os carros quando nao tiver
+cabine livre. quando uma cabine for liberada, aviso os carros esperando.
+
+int contador_carros;
+
+usei so pra numerar os carros, mas nem precisei no final.
+
+🔹 Funcao carro (o que cada thread executa)
+void* carro(void* arg) {
+
+essa eh a funcao que cada carro (thread) vai rodar.
+
+🔹 Pegar o id do carro
+int id = *(int*)arg;
+
+converte o argumento generico pra inteiro. o id vai ser 1, 2, 3...
+
+🔹 Carro chega ao pedagio
+printf("Carro %d chegou ao pedagio\n", id);
+
+primeira mensagem. o carro acabou de chegar.
+
+🔹 Regiao critica - procurar cabine livre
+pthread_mutex_lock(&mutex);
+
+travo o mutex antes de mexer no vetor de cabines.
+
+🔹 Loop de espera
+while (1) {
+    for (int i = 0; i < C; i++) {
+        if (cabines[i] == 0) {
+            cabine_id = i;
+            cabines[i] = 1;
+            break;
+        }
+    }
+    
+    if (cabine_id != -1) {
+        break;
+    }
+    
+    printf("Carro %d aguardando cabine livre\n", id);
+    pthread_cond_wait(&cond, &mutex);
+}
+
+procuro uma cabine livre. se achar, marco como ocupada e saio do loop.
+se nao achar, escrevo que ta aguardando e chamo pthread_cond_wait.
+essa funcao suspende a thread e libera o mutex automaticamente.
+quando outra thread chamar pthread_cond_signal, ela acorda.
+
+🔹 Sair da regiao critica
+pthread_mutex_unlock(&mutex);
+
+depois que consegui uma cabine, posso destravar o mutex.
+
+🔹 Usar a cabine (pagar)
+printf("Carro %d usando cabine %d\n", id, cabine_id + 1);
+sleep(2);
+
+simulo o pagamento. o atendimento demora 2 segundos.
+o +1 eh porque o vetor comeca no 0, mas a cabine 1 eh mais natural pro usuario.
+
+🔹 Liberar a cabine
+pthread_mutex_lock(&mutex);
+cabines[cabine_id] = 0;
+printf("Carro %d terminou pagamento e liberou cabine %d\n", id, cabine_id + 1);
+pthread_cond_signal(&cond);
+pthread_mutex_unlock(&mutex);
+
+entro na regiao critica, marco a cabine como livre (0), aviso que uma cabine
+ficou livre com pthread_cond_signal, e saio da regiao critica.
+
+🔹 Seguir viagem
+printf("Carro %d terminou pagamento e seguiu viagem\n", id);
+
+ultima mensagem. o carro vai embora.
+
+🔹 MAIN
+int main() {
+    pthread_t threads[T];
+    int ids[T];
+
+crio o array de threads e o array de ids.
+
+🔹 Inicializar cabines
+for (int i = 0; i < C; i++) {
+    cabines[i] = 0;
+}
+
+todas as cabines comecam livres (0).
+
+🔹 Inicializar mutex e cond
+pthread_mutex_init(&mutex, NULL);
+pthread_cond_init(&cond, NULL);
+
+inicializo o mutex e a variavel de condicao.
+
+🔹 Criar as threads (carros)
+for (int i = 0; i < T; i++) {
+    ids[i] = i + 1;
+    pthread_create(&threads[i], NULL, carro, &ids[i]);
+    usleep(500000);
+}
+
+crio T threads. cada thread executa a funcao carro.
+usei usleep(500000) pra dar um espacamento de 0.5 segundos entre as chegadas.
+assim fica mais facil de ver a simulacao acontecendo.
+
+🔹 Esperar todos terminarem
+for (int i = 0; i < T; i++) {
+    pthread_join(threads[i], NULL);
+}
+
+aguardo cada carro terminar (pthread_join).
+
+🔹 Destruir mutex e cond
+pthread_mutex_destroy(&mutex);
+pthread_cond_destroy(&cond);
+
+libero os recursos.
+
+FIM
